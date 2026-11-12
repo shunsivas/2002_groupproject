@@ -7,7 +7,10 @@ import java.io.PrintStream;
 import java.util.List;
 import java.util.Scanner;
 
-
+/**
+ * Console UI: collects manager decisions and displays state. It contains no game rules;
+ * every decision is validated by the domain, and failures are shown and re-asked.
+ */
 public class ConsoleUI {
     private final GameController game;
     private final Scanner in;
@@ -19,9 +22,10 @@ public class ConsoleUI {
         this.out = out;
     }
 
+    /** Runs the whole game. Returns false if input ended / the manager quit early. */
     public boolean run() {
         GameConfig cfg = game.config();
-        out.println(" Restaurant Manager");
+        out.println("=== Restaurant Manager - Stage 3 ===");
         out.printf("%d turns, %d tables, seed %d. Goal: >= %d paid, revenue >= %s, avg satisfaction >= %d.%n",
                 cfg.maxTurns(), cfg.tables(), cfg.seed(), cfg.minPaid(),
                 Money.format(cfg.minRevenueCents()), cfg.minAvgSatisfaction());
@@ -29,10 +33,11 @@ public class ConsoleUI {
         while (!game.isOver()) {
             List<String> arrivals = game.beginTurn();
             showState(arrivals);
-                if (!askStaff(true)) return false;
+                if (!askStaff("Host")) return false;
+                out.println("Waiter tasks (after the Host's choice): " + taskList(game.availableWaiterTasks()));
+                if (!askStaff("Waiter")) return false;
                 out.println("Chef tasks (after the Waiter's choice): " + taskList(game.availableChefTasks()));
-                if (!askStaff(false)) return false;
-
+                if (!askStaff("Chef")) return false;
             List<String> events = game.endTurn();
             out.println("-- End of turn " + game.turn() + " --");
             for (String e : events) out.println("  * " + e);
@@ -61,6 +66,8 @@ public class ConsoleUI {
             else out.println("Table " + t.number() + ": " + c.label() + " " + c.typeLabel() + " [sat " + c.satisfaction() + ", "
                     + c.state() + "]" + (c.order() != null ? " order: " + c.order() : " no order yet"));
         }
+        out.println("Happy Hour:   " + game.restaurant().happyHour().status());
+        out.println("Host tasks:   " + taskList(game.availableHostTasks()));
         out.println("Waiter tasks: " + taskList(game.availableWaiterTasks()));
         out.println("Chef tasks:   " + taskList(game.availableChefTasks()));
     }
@@ -76,8 +83,7 @@ public class ConsoleUI {
     }
 
     /** Asks for the Waiter's (waiter=true) or Chef's choice until valid, wait, or quit. */
-    private boolean askStaff(boolean waiter) {
-        String role = waiter ? "Waiter" : "Chef";
+    private boolean askStaff(String role) {
         while (true) {
             out.print(role + "> ");
             out.flush();
@@ -88,19 +94,30 @@ public class ConsoleUI {
             switch (p[0]) {
                 case "quit": out.println("Game aborted."); return false;
                 case "help": help(); continue;
+                case "happyhour": {
+                    ActionResult hh = game.activateHappyHour();
+                    out.println("  " + (hh.ok() ? "" : "INVALID: ") + hh.message());
+                    if (hh.ok()) out.println("  Happy Hour: " + game.restaurant().happyHour().status());
+                    continue;
+                }
                 case "wait": out.println("  " + role + " waits."); return true;
                 default: break;
             }
-            ActionResult res = dispatch(waiter, p);
+            ActionResult res = dispatch(role, p);
             out.println("  " + (res.ok() ? "" : "INVALID: ") + res.message());
             if (res.ok()) return true;
             out.println("  (nothing was used up; choose again)");
         }
     }
 
-    private ActionResult dispatch(boolean waiter, String[] p) {
+    private ActionResult dispatch(String role, String[] p) {
         try {
-            if (waiter) {
+            if (role.equals("Host")) {
+                if (!p[0].equals("seat")) return ActionResult.fail("Unknown Host command '" + p[0] + "'. Type 'help'.");
+                if (p.length < 2 || p.length > 3) return ActionResult.fail("Usage: seat <customer> [table]");
+                return game.hostSeat(Integer.parseInt(p[1]), p.length == 3 ? Integer.parseInt(p[2]) : null);
+            }
+            if (role.equals("Waiter")) {
                 switch (p[0]) {
                     case "seat":
                         if (p.length < 2 || p.length > 3) return ActionResult.fail("Usage: seat <customer> [table]");
@@ -126,6 +143,8 @@ public class ConsoleUI {
     }
 
     private void help() {
+        out.println("  Host   (one seating/turn):   seat <customer> [table] | wait");
+        out.println("  Happy Hour (once, before anyone acts in a turn): happyhour");
         out.println("  Waiter (one task per turn):  seat <customer> [table] | take <customer> | serve <customer> | wait");
         out.println("  Chef   (one unit per turn):  cook <customer> | wait");
         out.println("  Customers are numbered (C1 = 1). 'quit' aborts the game.");
@@ -136,7 +155,7 @@ public class ConsoleUI {
         Outcome o = game.result();
         GameConfig cfg = game.config();
         out.println();
-        out.println(" RESULT ");
+        out.println("================ RESULT ================");
         out.println("Served:             " + r.servedCount());
         out.println("Paid customers:     " + r.paidCount() + " (need " + cfg.minPaid() + ")  " + mark(o.paidOk()));
         out.println("Unhappy departures: " + r.unhappyDepartures());
@@ -145,7 +164,7 @@ public class ConsoleUI {
         out.println("Avg satisfaction:   " + avg(r) + " (need " + cfg.minAvgSatisfaction() + ")  "
                 + mark(o.satisfactionOk()));
         out.println("Turns used:         " + game.turn());
-        out.println(o.victory() ? "* VICTORY *" : "* DEFEAT *");
+        out.println(o.victory() ? "*** VICTORY ***" : "*** DEFEAT ***");
     }
 
     private String mark(boolean ok) { return ok ? "[met]" : "[NOT met]"; }

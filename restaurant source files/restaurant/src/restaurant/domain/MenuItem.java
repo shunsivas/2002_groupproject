@@ -1,6 +1,7 @@
 package restaurant.domain;
 
-public enum MenuItem {
+/** The three menu items. Prices are stored as integer cents. */
+public enum MenuItem implements MenuEntry {
     SALAD("Salad", 900, 1),
     BURGER("Burger", 1500, 1),
     PASTA("Pasta", 1800, 2);
@@ -15,7 +16,7 @@ public enum MenuItem {
         this.prepUnits = prepUnits;
     }
 
-    public String label() { return label; }
-    public int priceCents() { return priceCents; }
-    public int prepUnits() { return prepUnits; }
+    @Override public String label() { return label; }
+    @Override public int priceCents() { return priceCents; }
+    @Override public int prepUnits() { return prepUnits; }
 }

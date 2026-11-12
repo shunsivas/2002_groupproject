@@ -5,10 +5,17 @@ import restaurant.domain.*;
 import java.util.ArrayList;
 import java.util.List;
 
-
+/**
+ * Control object: owns the turn sequence and all game rules that are about flow.
+ * The UI only calls these methods and displays the state.
+ *
+ * Turn protocol: beginTurn() -> [Happy Hour] -> Host / Waiter / Chef choices -> endTurn().
+ * The Waiter acts before the Chef, so a dish finished this turn can only be served next turn.
+ */
 public class GameController {
     private final GameConfig config;
     private final Restaurant restaurant;
+    private final Host host = new Host();
     private final Waiter waiter = new Waiter();
     private final Chef chef = new Chef();
     private final Cashier cashier = new Cashier();
@@ -22,16 +29,19 @@ public class GameController {
 
     public GameConfig config() { return config; }
     public Restaurant restaurant() { return restaurant; }
+    public Host host() { return host; }
     public Waiter waiter() { return waiter; }
     public Chef chef() { return chef; }
     public int turn() { return turn; }
     public boolean isOver() { return turn >= config.maxTurns() && !turnOpen; }
 
+    // ---- Step 1: arrivals ----
     public List<String> beginTurn() {
         if (turnOpen) throw new IllegalStateException("Turn already open");
         if (isOver()) throw new IllegalStateException("Game is over");
         turn++;
         turnOpen = true;
+        host.startTurn();
         waiter.startTurn();
         chef.startTurn();
         cashier.startTurn();
@@ -41,7 +51,29 @@ public class GameController {
             Customer c = restaurant.customerArrives(turn, kind);
             events.add(c.label() + " [" + c.typeLabel() + "] arrives (" + c.describe() + ") and joins the queue with satisfaction 100.");
         }
+        if (restaurant.happyHour().isActive()) {
+            restaurant.applyHappyHourRecovery();
+            events.add("Happy Hour: waiting customers recover " + HappyHour.RECOVERY + " satisfaction.");
+        }
         return events;
+    }
+
+    /** Switch on Happy Hour. Only once per game and only at the start of a turn (before anyone acted). */
+    public ActionResult activateHappyHour() {
+        if (!turnOpen) return ActionResult.fail("No turn is in progress.");
+        if (host.hasActed() || waiter.hasActed() || chef.hasActed())
+            return ActionResult.fail("Happy Hour can only be started at the start of a turn, before any staff acts.");
+        if (restaurant.happyHour().isActive() || restaurant.happyHour().isUsed())
+            return ActionResult.fail("Happy Hour can only be used once per game.");
+        ActionResult r = restaurant.happyHour().activate();
+        restaurant.applyHappyHourRecovery();
+        return r;
+    }
+
+    // ---- Steps 2-3: manager choices (the Host seats; the Waiter acts before the Chef) ----
+    public ActionResult hostSeat(int customerNo, Integer tableNo) {
+        if (!turnOpen) return ActionResult.fail("No turn is in progress.");
+        return host.seat(restaurant, customerNo, tableNo);
     }
 
     public ActionResult waiterSeat(int customerNo, Integer tableNo) {
@@ -68,6 +100,16 @@ public class GameController {
         return null;
     }
 
+    /** Currently possible Host tasks, as command hints (for display only). */
+    public List<String> availableHostTasks() {
+        List<String> tasks = new ArrayList<>();
+        if (host.hasActed() || restaurant.firstFreeTable() == null) return tasks;
+        for (Customer c : restaurant.queue())
+            tasks.add("seat " + c.number() + " [table]   - seat " + c.label());
+        return tasks;
+    }
+
+    /** Currently possible Waiter tasks, as command hints (for display only). */
     public List<String> availableWaiterTasks() {
         List<String> tasks = new ArrayList<>();
         if (waiter.hasActed()) return tasks;
@@ -83,6 +125,7 @@ public class GameController {
         return tasks;
     }
 
+    /** Currently possible Chef tasks, as command hints (for display only). */
     public List<String> availableChefTasks() {
         List<String> tasks = new ArrayList<>();
         if (chef.hasActed()) return tasks;
@@ -93,20 +136,25 @@ public class GameController {
         return tasks;
     }
 
+    // ---- Steps 4-5 (and 6 after the last turn) ----
     public List<String> endTurn() {
         if (!turnOpen) throw new IllegalStateException("No turn open");
         List<String> events = new ArrayList<>();
+        // Step 4: payment of customers who were ready on an earlier turn, then eating progress.
         Customer paid = cashier.collectPayment(restaurant, turn);
         if (paid != null) {
             events.add("Cashier collects " + Money.format(paid.order().billCents()) + " from "
                     + paid.label() + " (satisfaction " + paid.paidSatisfaction() + "). Table freed.");
         }
         restaurant.finishEating(turn, events);
+        // Step 5: waiting and abandonment.
         restaurant.endOfTurnWaiting(events);
+        restaurant.happyHour().endTurn();
         turnOpen = false;
         return events;
     }
 
+    /** Step 6: only valid once all turns have been played. */
     public Outcome result() {
         if (!isOver()) throw new IllegalStateException("Game not finished");
         boolean paidOk = restaurant.paidCount() >= config.minPaid();

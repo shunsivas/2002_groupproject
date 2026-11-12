@@ -1,9 +1,12 @@
 package restaurant.domain;
 
-
+/**
+ * Base class for all customers. Type-specific behaviour (waiting loss, bill, dish choice)
+ * is dispatched through the abstract methods below, never through type checks elsewhere.
+ */
 public abstract class Customer {
     private final int number;
-    private MenuItem choice; 
+    private MenuEntry choice; // chosen at arrival, revealed once the order is placed
     private final int arrivalTurn;
     private int satisfaction = 100;
     private CustomerState state = CustomerState.WAITING;
@@ -18,13 +21,19 @@ public abstract class Customer {
         this.arrivalTurn = arrivalTurn;
     }
 
-    
+    // ---- behaviour that differs per customer type ----
+    /** Display name of the customer type. */
     public abstract String typeLabel();
+    /** Satisfaction points lost per turn while not yet served. */
     public abstract int waitingPenalty();
-    public abstract int billFor(MenuItem item);
-    protected abstract MenuItem chooseDish(java.util.Random rng);
+    /** Bill in cents for the given dish. */
+    public abstract int billFor(MenuEntry item);
+    /** Picks this customer's dish. Documented rule per type. */
+    protected abstract MenuEntry chooseDish(java.util.Random rng);
+    /** One-line description of the type's special rule, for the UI. */
     public abstract String describe();
 
+    /** Called once on arrival. */
     public void decideDish(java.util.Random rng) { this.choice = chooseDish(rng); }
 
     public int number() { return number; }
@@ -37,12 +46,13 @@ public abstract class Customer {
     public int servedTurn() { return servedTurn; }
     public int readyToPayTurn() { return readyToPayTurn; }
     public int paidSatisfaction() { return paidSatisfaction; }
-    MenuItem choice() { return choice; }
+    MenuEntry choice() { return choice; }
 
     void seatAt(Table t) { table = t; t.occupy(this); state = CustomerState.SEATED; }
 
-    Order placeOrder() {
-        order = new Order(this, choice);
+    /** The bill is locked now: customer discount first, then Happy Hour if active. */
+    Order placeOrder(HappyHour happyHour) {
+        order = new Order(this, choice, happyHour.adjust(billFor(choice)));
         state = CustomerState.ORDERED;
         return order;
     }
@@ -62,10 +72,13 @@ public abstract class Customer {
         releaseTable();
     }
 
+    /** Applies the end-of-turn waiting penalty. Returns true if the customer abandons. */
     boolean waitOneTurn() {
         satisfaction = Math.max(0, satisfaction - waitingPenalty());
         return satisfaction == 0;
     }
+
+    void recover(int points) { satisfaction = Math.min(100, satisfaction + points); }
 
     void abandon() {
         if (order != null) order.cancel();
