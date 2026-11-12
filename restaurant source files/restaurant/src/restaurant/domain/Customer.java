@@ -1,9 +1,9 @@
 package restaurant.domain;
 
-public class Customer {
+
+public abstract class Customer {
     private final int number;
-    private final CustomerType type;
-    private final MenuItem choice;
+    private MenuItem choice; 
     private final int arrivalTurn;
     private int satisfaction = 100;
     private CustomerState state = CustomerState.WAITING;
@@ -13,16 +13,22 @@ public class Customer {
     private int readyToPayTurn = -1;
     private int paidSatisfaction = -1;
 
-    public Customer(int number, CustomerType type, MenuItem choice, int arrivalTurn) {
+    protected Customer(int number, int arrivalTurn) {
         this.number = number;
-        this.type = type;
-        this.choice = choice;
         this.arrivalTurn = arrivalTurn;
     }
 
+    
+    public abstract String typeLabel();
+    public abstract int waitingPenalty();
+    public abstract int billFor(MenuItem item);
+    protected abstract MenuItem chooseDish(java.util.Random rng);
+    public abstract String describe();
+
+    public void decideDish(java.util.Random rng) { this.choice = chooseDish(rng); }
+
     public int number() { return number; }
     public String label() { return "C" + number; }
-    public CustomerType type() { return type; }
     public int arrivalTurn() { return arrivalTurn; }
     public int satisfaction() { return satisfaction; }
     public CustomerState state() { return state; }
@@ -57,7 +63,7 @@ public class Customer {
     }
 
     boolean waitOneTurn() {
-        satisfaction = Math.max(0, satisfaction - type.patiencePenalty());
+        satisfaction = Math.max(0, satisfaction - waitingPenalty());
         return satisfaction == 0;
     }
 

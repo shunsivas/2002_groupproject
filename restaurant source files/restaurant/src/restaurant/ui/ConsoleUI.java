@@ -13,16 +13,15 @@ public class ConsoleUI {
     private final Scanner in;
     private final PrintStream out;
 
-
-    public ConsoleUI(GameController game, Scanner in, PrintStream out, boolean auto) {
+    public ConsoleUI(GameController game, Scanner in, PrintStream out) {
         this.game = game;
         this.in = in;
         this.out = out;
-        }
+    }
 
     public boolean run() {
         GameConfig cfg = game.config();
-        out.println(" Restaurant Manager - Stage 1 ");
+        out.println(" Restaurant Manager");
         out.printf("%d turns, %d tables, seed %d. Goal: >= %d paid, revenue >= %s, avg satisfaction >= %d.%n",
                 cfg.maxTurns(), cfg.tables(), cfg.seed(), cfg.minPaid(),
                 Money.format(cfg.minRevenueCents()), cfg.minAvgSatisfaction());
@@ -30,9 +29,10 @@ public class ConsoleUI {
         while (!game.isOver()) {
             List<String> arrivals = game.beginTurn();
             showState(arrivals);
-                if (!askStaff(true)) return false; 
+                if (!askStaff(true)) return false;
                 out.println("Chef tasks (after the Waiter's choice): " + taskList(game.availableChefTasks()));
                 if (!askStaff(false)) return false;
+
             List<String> events = game.endTurn();
             out.println("-- End of turn " + game.turn() + " --");
             for (String e : events) out.println("  * " + e);
@@ -44,7 +44,7 @@ public class ConsoleUI {
     private void showState(List<String> arrivals) {
         Restaurant r = game.restaurant();
         out.println();
-        out.println("TURN " + game.turn() + " / " + game.config().maxTurns() + " ================");
+        out.println("================ TURN " + game.turn() + " / " + game.config().maxTurns() + " ================");
         for (String a : arrivals) out.println("  * " + a);
         out.println("Revenue: " + Money.format(r.revenueCents()) + "   Avg satisfaction (paid): " + avg(r)
                 + "   Paid: " + r.paidCount());
@@ -52,13 +52,13 @@ public class ConsoleUI {
         if (r.queue().isEmpty()) out.println("(empty)");
         else {
             StringBuilder sb = new StringBuilder();
-            for (Customer c : r.queue()) sb.append(c.label()).append("[sat ").append(c.satisfaction()).append("] ");
+            for (Customer c : r.queue()) sb.append(c.label()).append(" ").append(c.typeLabel()).append("[sat ").append(c.satisfaction()).append("] ");
             out.println(sb.toString().trim());
         }
         for (Table t : r.tables()) {
             Customer c = t.occupant();
             if (c == null) out.println("Table " + t.number() + ": free");
-            else out.println("Table " + t.number() + ": " + c.label() + " [sat " + c.satisfaction() + ", "
+            else out.println("Table " + t.number() + ": " + c.label() + " " + c.typeLabel() + " [sat " + c.satisfaction() + ", "
                     + c.state() + "]" + (c.order() != null ? " order: " + c.order() : " no order yet"));
         }
         out.println("Waiter tasks: " + taskList(game.availableWaiterTasks()));
@@ -75,6 +75,7 @@ public class ConsoleUI {
         return a == null ? "N/A" : String.format("%.1f", a);
     }
 
+    /** Asks for the Waiter's (waiter=true) or Chef's choice until valid, wait, or quit. */
     private boolean askStaff(boolean waiter) {
         String role = waiter ? "Waiter" : "Chef";
         while (true) {
@@ -135,7 +136,7 @@ public class ConsoleUI {
         Outcome o = game.result();
         GameConfig cfg = game.config();
         out.println();
-        out.println("RESULT");
+        out.println(" RESULT ");
         out.println("Served:             " + r.servedCount());
         out.println("Paid customers:     " + r.paidCount() + " (need " + cfg.minPaid() + ")  " + mark(o.paidOk()));
         out.println("Unhappy departures: " + r.unhappyDepartures());
@@ -144,7 +145,7 @@ public class ConsoleUI {
         out.println("Avg satisfaction:   " + avg(r) + " (need " + cfg.minAvgSatisfaction() + ")  "
                 + mark(o.satisfactionOk()));
         out.println("Turns used:         " + game.turn());
-        out.println(o.victory() ? " VICTORY *" : "* DEFEAT *");
+        out.println(o.victory() ? "* VICTORY *" : "* DEFEAT *");
     }
 
     private String mark(boolean ok) { return ok ? "[met]" : "[NOT met]"; }

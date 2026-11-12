@@ -61,9 +61,10 @@ public class Restaurant {
     }
 
 
-    public Customer customerArrives(int turn) {
-        MenuItem choice = MenuItem.values()[menuRandom.nextInt(MenuItem.values().length)];
-        Customer c = new Customer(customers.size() + 1, CustomerType.REGULAR, choice, turn);
+    
+    public Customer customerArrives(int turn, CustomerKind kind) {
+        Customer c = kind.create(customers.size() + 1, turn);
+        c.decideDish(menuRandom);
         customers.add(c);
         queue.add(c);
         return c;

@@ -16,7 +16,7 @@ public class Order {
     public MenuItem item() { return item; }
     public int remainingUnits() { return remainingUnits; }
     public OrderStatus status() { return status; }
-    public int billCents() { return item.priceCents(); }
+    public int billCents() { return customer.billFor(item); }
 
     public boolean isCookable() {
         return status == OrderStatus.PLACED || status == OrderStatus.PREPARING;

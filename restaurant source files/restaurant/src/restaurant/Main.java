@@ -12,6 +12,6 @@ public class Main {
         
 
         GameController game = new GameController(GameConfig.base(seed));
-        new ConsoleUI(game, new Scanner(System.in), System.out, false).run();
+        new ConsoleUI(game, new Scanner(System.in), System.out).run();
         }
 }

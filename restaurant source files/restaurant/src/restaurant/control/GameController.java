@@ -27,7 +27,6 @@ public class GameController {
     public int turn() { return turn; }
     public boolean isOver() { return turn >= config.maxTurns() && !turnOpen; }
 
-    // ---- Step 1: arrivals ----
     public List<String> beginTurn() {
         if (turnOpen) throw new IllegalStateException("Turn already open");
         if (isOver()) throw new IllegalStateException("Game is over");
@@ -37,14 +36,14 @@ public class GameController {
         chef.startTurn();
         cashier.startTurn();
         List<String> events = new ArrayList<>();
-        if (config.arrivalTurns().contains(turn)) {
-            Customer c = restaurant.customerArrives(turn);
-            events.add(c.label() + " (" + c.type().label() + ") arrives and joins the queue with satisfaction 100.");
+        CustomerKind kind = config.arrivals().get(turn);
+        if (kind != null) {
+            Customer c = restaurant.customerArrives(turn, kind);
+            events.add(c.label() + " [" + c.typeLabel() + "] arrives (" + c.describe() + ") and joins the queue with satisfaction 100.");
         }
         return events;
     }
 
-    // ---- Steps 2-3: manager choices (the Waiter acts first) ----
     public ActionResult waiterSeat(int customerNo, Integer tableNo) {
         return waiterGuard() != null ? waiterGuard() : waiter.seat(restaurant, customerNo, tableNo);
     }
@@ -69,7 +68,6 @@ public class GameController {
         return null;
     }
 
-    /** Currently possible Waiter tasks, as command hints (for display only). */
     public List<String> availableWaiterTasks() {
         List<String> tasks = new ArrayList<>();
         if (waiter.hasActed()) return tasks;
@@ -85,7 +83,6 @@ public class GameController {
         return tasks;
     }
 
-    /** Currently possible Chef tasks, as command hints (for display only). */
     public List<String> availableChefTasks() {
         List<String> tasks = new ArrayList<>();
         if (chef.hasActed()) return tasks;
@@ -96,24 +93,20 @@ public class GameController {
         return tasks;
     }
 
-    // ---- Steps 4-5 (and 6 after the last turn) ----
     public List<String> endTurn() {
         if (!turnOpen) throw new IllegalStateException("No turn open");
         List<String> events = new ArrayList<>();
-        // Step 4: payment of customers who were ready on an earlier turn, then eating progress.
         Customer paid = cashier.collectPayment(restaurant, turn);
         if (paid != null) {
             events.add("Cashier collects " + Money.format(paid.order().billCents()) + " from "
                     + paid.label() + " (satisfaction " + paid.paidSatisfaction() + "). Table freed.");
         }
         restaurant.finishEating(turn, events);
-        // Step 5: waiting and abandonment.
         restaurant.endOfTurnWaiting(events);
         turnOpen = false;
         return events;
     }
 
-    /** Step 6: only valid once all turns have been played. */
     public Outcome result() {
         if (!isOver()) throw new IllegalStateException("Game not finished");
         boolean paidOk = restaurant.paidCount() >= config.minPaid();

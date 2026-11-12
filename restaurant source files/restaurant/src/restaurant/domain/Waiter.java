@@ -35,7 +35,7 @@ public class Waiter extends Staff {
         Order o = c.placeOrder();
         markActed();
         return ActionResult.success("Waiter takes " + c.label() + "'s order: " + o.item().label()
-                + " (" + Money.format(o.billCents()) + ", " + o.item().prepUnits() + " prep unit(s)).");
+                + " (bill " + Money.format(o.billCents()) + ", " + o.item().prepUnits() + " prep unit(s)).");
     }
 
     public ActionResult serve(Restaurant r, int customerNo, int turn) {
