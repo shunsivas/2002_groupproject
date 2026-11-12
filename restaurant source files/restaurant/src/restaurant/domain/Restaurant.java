@@ -5,11 +5,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
+/** Aggregate holding the whole restaurant state: tables, queue, customers, money and counters. */
 public class Restaurant {
     private final List<Table> tables = new ArrayList<>();
     private final List<Customer> queue = new ArrayList<>();
     private final List<Customer> customers = new ArrayList<>();
     private final Random menuRandom;
+    private final HappyHour happyHour = new HappyHour();
     private long revenueCents;
     private int servedCount;
     private int unhappyDepartures;
@@ -21,18 +23,22 @@ public class Restaurant {
         this.menuRandom = new Random(seed);
     }
 
+    // ---- read access ----
     public List<Table> tables() { return Collections.unmodifiableList(tables); }
     public List<Customer> queue() { return Collections.unmodifiableList(queue); }
     public List<Customer> customers() { return Collections.unmodifiableList(customers); }
+    public HappyHour happyHour() { return happyHour; }
     public long revenueCents() { return revenueCents; }
     public int servedCount() { return servedCount; }
     public int unhappyDepartures() { return unhappyDepartures; }
     public int paidCount() { return paidCount; }
 
+    /** Average satisfaction recorded at payment, or null if nobody has paid. */
     public Double averageSatisfaction() {
         return paidCount == 0 ? null : (double) paidSatisfactionSum / paidCount;
     }
 
+    /** Exact integer check for "average >= threshold". */
     public boolean averageSatisfactionAtLeast(int threshold) {
         return paidCount > 0 && paidSatisfactionSum >= (long) threshold * paidCount;
     }
@@ -60,8 +66,12 @@ public class Restaurant {
         return list;
     }
 
+    // ---- mutations (package-private: only domain staff / the turn controller's domain calls use them) ----
 
-    
+    /**
+     * A customer of the given kind arrives and joins the queue. The customer decides its own dish
+     * (see each subclass); Regular and VIP use the seeded random generator, so runs are reproducible.
+     */
     public Customer customerArrives(int turn, CustomerKind kind) {
         Customer c = kind.create(customers.size() + 1, turn);
         c.decideDish(menuRandom);
@@ -79,6 +89,13 @@ public class Restaurant {
         paidSatisfactionSum += c.satisfaction();
     }
 
+    /** Happy Hour: customers still waiting for a table or food recover satisfaction (max 100). */
+    public void applyHappyHourRecovery() {
+        for (Customer c : customers)
+            if (c.state().losesSatisfaction()) c.recover(HappyHour.RECOVERY);
+    }
+
+    /** Customers served on an earlier turn finish eating and become READY_TO_PAY. */
     public void finishEating(int turn, List<String> events) {
         for (Customer c : customers) {
             if (c.state() == CustomerState.SERVED && c.servedTurn() < turn) {

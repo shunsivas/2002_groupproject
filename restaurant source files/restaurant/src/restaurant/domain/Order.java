@@ -2,26 +2,29 @@ package restaurant.domain;
 
 public class Order {
     private final Customer customer;
-    private final MenuItem item;
+    private final MenuEntry item;
+    private final int billCents; // locked when the order is taken
     private int remainingUnits;
     private OrderStatus status = OrderStatus.PLACED;
 
-    public Order(Customer customer, MenuItem item) {
+    Order(Customer customer, MenuEntry item, int billCents) {
         this.customer = customer;
+        this.billCents = billCents;
         this.item = item;
         this.remainingUnits = item.prepUnits();
     }
 
     public Customer customer() { return customer; }
-    public MenuItem item() { return item; }
+    public MenuEntry item() { return item; }
     public int remainingUnits() { return remainingUnits; }
     public OrderStatus status() { return status; }
-    public int billCents() { return customer.billFor(item); }
+    public int billCents() { return billCents; }
 
     public boolean isCookable() {
         return status == OrderStatus.PLACED || status == OrderStatus.PREPARING;
     }
 
+    /** One preparation unit. Becomes READY when the last unit is done. */
     void advance() {
         remainingUnits--;
         status = remainingUnits == 0 ? OrderStatus.READY : OrderStatus.PREPARING;

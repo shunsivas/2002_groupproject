@@ -1,29 +1,7 @@
 package restaurant.domain;
 
-public class Waiter extends Staff {
+public class Waiter extends SeatingStaff {
     public Waiter() { super("Waiter"); }
-
-    public ActionResult seat(Restaurant r, int customerNo, Integer tableNo) {
-        if (hasActed()) return alreadyActed();
-        Customer c = r.findCustomer(customerNo);
-        if (c == null) return ActionResult.fail("There is no customer C" + customerNo + ".");
-        if (c.state() != CustomerState.WAITING)
-            return ActionResult.fail(c.label() + " is not in the waiting queue (state: " + c.state() + ").");
-        Table t;
-        if (tableNo == null) {
-            t = r.firstFreeTable();
-            if (t == null) return ActionResult.fail("No free table: both tables are occupied.");
-        } else {
-            t = r.findTable(tableNo);
-            if (t == null) return ActionResult.fail("There is no table " + tableNo + ".");
-            if (!t.isFree()) return ActionResult.fail("Table " + tableNo + " is occupied by "
-                    + t.occupant().label() + ".");
-        }
-        r.removeFromQueue(c);
-        c.seatAt(t);
-        markActed();
-        return ActionResult.success("Waiter seats " + c.label() + " at table " + t.number() + ".");
-    }
 
     public ActionResult takeOrder(Restaurant r, int customerNo) {
         if (hasActed()) return alreadyActed();
@@ -32,7 +10,7 @@ public class Waiter extends Staff {
         if (c.state() != CustomerState.SEATED)
             return ActionResult.fail(c.label() + " is not a seated customer without an order (state: "
                     + c.state() + ").");
-        Order o = c.placeOrder();
+        Order o = c.placeOrder(r.happyHour());
         markActed();
         return ActionResult.success("Waiter takes " + c.label() + "'s order: " + o.item().label()
                 + " (bill " + Money.format(o.billCents()) + ", " + o.item().prepUnits() + " prep unit(s)).");
