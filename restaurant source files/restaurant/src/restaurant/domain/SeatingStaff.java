@@ -1,10 +1,8 @@
 package restaurant.domain;
 
-/** Staff who can seat a queued customer (Host and Waiter). The seating rules live here once. */
 public abstract class SeatingStaff extends Staff {
     protected SeatingStaff(String role) { super(role); }
 
-    /** Seat a queued customer at the given table, or at the first free table if tableNo is null. */
     public ActionResult seat(Restaurant r, int customerNo, Integer tableNo) {
         if (hasActed()) return alreadyActed();
         Customer c = r.findCustomer(customerNo);

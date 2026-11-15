@@ -1,6 +1,5 @@
 package restaurant.domain;
 
-/** The three menu items. Prices are stored as integer cents. */
 public enum MenuItem implements MenuEntry {
     SALAD("Salad", 900, 1),
     BURGER("Burger", 1500, 1),

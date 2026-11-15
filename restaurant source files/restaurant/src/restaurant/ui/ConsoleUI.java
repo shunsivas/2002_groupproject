@@ -7,10 +7,6 @@ import java.io.PrintStream;
 import java.util.List;
 import java.util.Scanner;
 
-/**
- * Console UI: collects manager decisions and displays state. It contains no game rules;
- * every decision is validated by the domain, and failures are shown and re-asked.
- */
 public class ConsoleUI {
     private final GameController game;
     private final Scanner in;
@@ -22,7 +18,6 @@ public class ConsoleUI {
         this.out = out;
     }
 
-    /** Runs the whole game. Returns false if input ended / the manager quit early. */
     public boolean run() {
         GameConfig cfg = game.config();
         out.println("=== Restaurant Manager - Stage 3 ===");
@@ -82,7 +77,6 @@ public class ConsoleUI {
         return a == null ? "N/A" : String.format("%.1f", a);
     }
 
-    /** Asks for the Waiter's (waiter=true) or Chef's choice until valid, wait, or quit. */
     private boolean askStaff(String role) {
         while (true) {
             out.print(role + "> ");

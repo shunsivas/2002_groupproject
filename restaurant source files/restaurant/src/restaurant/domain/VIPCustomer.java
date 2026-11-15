@@ -3,7 +3,6 @@ package restaurant.domain;
 import java.util.List;
 import java.util.Random;
 
-/** Loses 5 per waiting turn, gets 10% off the bill (integer cents), picks uniformly at random (seeded) from the full menu: 3 items + 3 combos. */
 public class VIPCustomer extends Customer {
     public VIPCustomer(int number, int arrivalTurn) { super(number, arrivalTurn); }
 

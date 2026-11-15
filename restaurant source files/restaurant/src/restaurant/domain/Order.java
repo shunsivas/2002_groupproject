@@ -24,7 +24,6 @@ public class Order {
         return status == OrderStatus.PLACED || status == OrderStatus.PREPARING;
     }
 
-    /** One preparation unit. Becomes READY when the last unit is done. */
     void advance() {
         remainingUnits--;
         status = remainingUnits == 0 ? OrderStatus.READY : OrderStatus.PREPARING;
